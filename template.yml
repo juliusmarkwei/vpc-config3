@@ -1,0 +1,309 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Highly Available VPC with ALB, Security Groups, NAT Gateway, and RDS PostgreSQL"
+
+Parameters:
+  DBUsername:
+    Type: String
+    NoEcho: true
+    Description: "The username for the PostgreSQL database."
+
+  DBPassword:
+    Type: String
+    NoEcho: true
+    Description: "The password for the PostgreSQL database."
+
+  DBName:
+    Type: String
+    Description: "The name of the PostgreSQL database."
+
+  DBPort:
+    Type: Number
+    Default: 5432
+    Description: "The port for the PostgreSQL database."
+
+Resources:
+  # VPC
+  JuliusPhotoAlbumVPC2:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: JuliusPhotoAlbumVPC2
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: JuliusInternetGateway1
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref JuliusPhotoAlbumVPC2
+      InternetGatewayId: !Ref InternetGateway
+
+  # Elastic IP for NAT Gateway
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  # NAT Gateway
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+      Tags:
+      - Key: Name
+        Value: JuliusNATGateway2
+
+  # Public Subnets
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref JuliusPhotoAlbumVPC2
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [ 0, !GetAZs "" ]
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: PublicSubnet1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref JuliusPhotoAlbumVPC2
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [ 1, !GetAZs "" ]
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: PublicSubnet2
+
+  PublicSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref JuliusPhotoAlbumVPC2
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select [ 2, !GetAZs "" ]
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: PublicSubnet3
+
+  # Private Subnets
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref JuliusPhotoAlbumVPC2
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: !Select [ 0, !GetAZs "" ]
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: PrivateSubnet1
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref JuliusPhotoAlbumVPC2
+      CidrBlock: 10.0.5.0/24
+      AvailabilityZone: !Select [ 1, !GetAZs "" ]
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: PrivateSubnet2
+
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref JuliusPhotoAlbumVPC2
+      CidrBlock: 10.0.6.0/24
+      AvailabilityZone: !Select [ 2, !GetAZs "" ]
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: PrivateSubnet3
+
+  # Public Route Table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref JuliusPhotoAlbumVPC2
+      Tags:
+      - Key: Name
+        Value: PublicRouteTable
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet3
+      RouteTableId: !Ref PublicRouteTable
+
+  # Private Route Table (Using NAT Gateway)
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref JuliusPhotoAlbumVPC2
+      Tags:
+      - Key: Name
+        Value: PrivateRouteTable
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet3
+      RouteTableId: !Ref PrivateRouteTable
+
+  # Security Groups
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "ECSSecurityGroup2"
+      GroupDescription: "Security group for ECS services"
+      VpcId: !Ref JuliusPhotoAlbumVPC2
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: "3000"
+        ToPort: "3000"
+        SourceSecurityGroupId: !Ref ALBSecurityGroup
+      Tags:
+      - Key: Name
+        Value: ECS-SecurityGroup
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "ALBSecurityGroup2"
+      GroupDescription: "Security group for the load balancer"
+      VpcId: !Ref JuliusPhotoAlbumVPC2
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: "80"
+        ToPort: "80"
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: ALB-SecurityGroup
+
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "RDSSecurityGroup2"
+      GroupDescription: "Security group for RDS PostgreSQL"
+      VpcId: !Ref JuliusPhotoAlbumVPC2
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: "5432"
+        ToPort: "5432"
+        SourceSecurityGroupId: !Ref ECSSecurityGroup
+      Tags:
+      - Key: Name
+        Value: RDS-SecurityGroup
+
+  MyPostgresDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceClass: db.t3.micro
+      Engine: postgres
+      EngineVersion: "17.2"
+      DBInstanceIdentifier: "julius-photoalbum-db"
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBName: !Ref DBName
+      Port: !Ref DBPort
+      MultiAZ: true
+      AllocatedStorage: 20
+      StorageType: gp2
+      VPCSecurityGroups:
+      - !Ref RDSSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      BackupRetentionPeriod: 7
+      PubliclyAccessible: false
+      Tags:
+      - Key: Name
+        Value: MyPostgresDB
+
+  # RDS Subnet Group for Multi-AZ RDS deployment
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Subnet group for multi-AZ PostgreSQL database"
+      SubnetIds:
+      - !Ref PrivateSubnet1
+      - !Ref PrivateSubnet2
+      Tags:
+      - Key: Name
+        Value: DBSubnetGroup
+
+  # Store the connection string in Secrets Manager
+  DBCredentialSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: "julius-photoalbum-credentials"
+      Description: "PostgreSQL database credential for Julius Photo Album"
+      SecretString: !Sub '{"username": "${DBUsername}", "password": "${DBPassword}", "dbname": "${DBName}", "host": "${MyPostgresDB.Endpoint.Address}", "port": "${DBPort}"}'
+
+Outputs:
+  LogicalResourceId:
+    Description: "Resources created in this template with their logical IDs"
+    Value:
+      Fn::Join:
+      - ", "
+      - - !Sub "PublicSubnet1: ${PublicSubnet1}"
+        - !Sub "PublicSubnet2: ${PublicSubnet2}"
+        - !Sub "PrivateSubnet1: ${PrivateSubnet1}"
+        - !Sub "PrivateSubnet2: ${PrivateSubnet2}"
+        - !Sub "PrivateSubnet3: ${PrivateSubnet3}"
+        - !Sub "PublicRouteTable: ${PublicRouteTable}"
+        - !Sub "PrivateRouteTable: ${PrivateRouteTable}"
+        - !Sub "InternetGateway: ${InternetGateway}"
+        - !Sub "NatGateway: ${NatGateway}"
+        - !Sub "JuliusPhotoAlbumVPC2: ${JuliusPhotoAlbumVPC2}"
+        - !Sub "RDS Security Group: ${RDSSecurityGroup}"
+        - !Sub "Postgres DB: ${MyPostgresDB}"
+        - !Sub "DB Subnet Group: ${DBSubnetGroup}"
