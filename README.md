@@ -11,9 +11,9 @@ This AWS CloudFormation template provisions a highly available infrastructure fo
 -   **NAT Gateway** to enable private subnets to access the internet.
 -   **RDS PostgreSQL Database** with Multi-AZ failover enabled for high availability.
 -   **Security Groups** for controlling access between ECS services, the ALB, and the RDS PostgreSQL instance.
--   **AWS Secrets Manager** to securely store and manage the PostgreSQL database credentials.
+-   **AWS Systems Manager Parameter Store** to store database configuration parameters such as username, password, and port.
 
-The PostgreSQL database is configured to use Multi-AZ for high availability, ensuring automatic failover in case of instance failure. The database password is generated and stored securely in **Secrets Manager**.
+The PostgreSQL database is configured to use Multi-AZ for high availability, ensuring automatic failover in case of instance failure. The database credentials are securely stored in **AWS Systems Manager Parameter Store**.
 
 ## **Architecture**
 
@@ -25,11 +25,14 @@ The PostgreSQL database is configured to use Multi-AZ for high availability, ens
     -   **ALBSecurityGroup**: Allows HTTP traffic (port 80) from the internet to the load balancer.
     -   **RDSSecurityGroup**: Allows access to the PostgreSQL RDS instance from ECS services.
 -   **RDS PostgreSQL**: The PostgreSQL instance is deployed in a Multi-AZ configuration with automatic failover for high availability.
--   **AWS Secrets Manager**: Automatically generates a password for the PostgreSQL instance and securely stores it.
+-   **AWS Systems Manager Parameter Store**: Stores the database username, password, and port as parameters.
 
 ## **Parameters**
 
 -   `DBUsername`: The username for the PostgreSQL database. This is a string parameter provided at the time of stack creation.
+-   `DBPassword`: The password for the PostgreSQL database. This is a secure string parameter provided at the time of stack creation.
+-   `DBName`: The name of the PostgreSQL database.
+-   `DBPort`: The port for the PostgreSQL database (default: 5432).
 
 ## **Resources Created**
 
@@ -43,7 +46,7 @@ The PostgreSQL database is configured to use Multi-AZ for high availability, ens
     -   **ALB Security Group**: Allows internet access to the ALB.
     -   **RDS Security Group**: Allows communication from ECS services to the PostgreSQL database.
 -   **RDS PostgreSQL Database**: A PostgreSQL database with Multi-AZ failover and storage for the "photoalbum" database.
--   **Secrets Manager**: Automatically generates and stores the database password.
+-   **AWS Systems Manager Parameter Store**: Stores the database username, password, and port.
 
 ## **How to Use This Template**
 
@@ -64,7 +67,7 @@ The PostgreSQL database is configured to use Multi-AZ for high availability, ens
     - Click **Create Stack**.
     - Upload the saved `.yaml` file or copy-paste its contents into the template editor.
     - Provide a **stack name** (e.g., `JuliusPhotoAlbumVPC`).
-    - Enter the **DBUsername** for the PostgreSQL database.
+    - Enter the **DBUsername**, **DBPassword**, and **DBName** for the PostgreSQL database.
     - Click **Next** and configure stack options.
     - Review and click **Create**.
 
@@ -77,6 +80,8 @@ The PostgreSQL database is configured to use Multi-AZ for high availability, ens
       --stack-name JuliusPhotoAlbumVPC \
       --template-body file://JuliusPhotoAlbumVPC.yaml \
       --parameters ParameterKey=DBUsername,ParameterValue=<your-db-username> \
+                   ParameterKey=DBPassword,ParameterValue=<your-db-password> \
+                   ParameterKey=DBName,ParameterValue=<your-db-name> \
       --capabilities CAPABILITY_NAMED_IAM
     ```
 
@@ -85,7 +90,7 @@ The PostgreSQL database is configured to use Multi-AZ for high availability, ens
 -   **RDS PostgreSQL Database**:
 
     -   The database is deployed in a private subnet and is **not publicly accessible**. You can access it via an application hosted in ECS or through an EC2 instance in the private subnet.
-    -   The **DBUsername** and **DBPassword** can be retrieved from AWS Secrets Manager (`/julius-photoalbum/db/password`).
+    -   The **DBUsername**, **DBPassword**, and **DBPort** are stored in AWS Systems Manager Parameter Store.
 
 -   **ECS Service**:
 
@@ -102,7 +107,7 @@ Once the stack is successfully created, the following outputs will be available:
 -   **Private Subnets**: The resource IDs of the three private subnets.
 -   **Security Groups**: The resource IDs of the ECS, ALB, and RDS security groups.
 -   **RDS PostgreSQL Database**: The identifier of the created PostgreSQL RDS instance.
--   **Secrets Manager**: The ARN of the Secrets Manager secret that stores the database password.
+-   **SSM Parameters**: The names of the SSM parameters storing the database credentials.
 
 ## **Template Overview**
 
@@ -122,10 +127,10 @@ Once the stack is successfully created, the following outputs will be available:
 
 -   **NAT Gateway**: Provides internet access to the private subnets.
 -   **RDS PostgreSQL Database**: A multi-AZ, fault-tolerant PostgreSQL database with automatic failover.
--   **Secrets Manager**: Stores and generates a secure password for the PostgreSQL instance.
+-   **AWS Systems Manager Parameter Store**: Stores the database username, password, and port.
 
 ## **Conclusion**
 
-This CloudFormation template automates the deployment of a scalable, highly available infrastructure using AWS best practices. It integrates services like ECS, ALB, RDS, and Secrets Manager to provide a secure, fault-tolerant environment for running a web application with PostgreSQL as the database backend.
+This CloudFormation template automates the deployment of a scalable, highly available infrastructure using AWS best practices. It integrates services like ECS, ALB, RDS, and Systems Manager Parameter Store to provide a secure, fault-tolerant environment for running a web application with PostgreSQL as the database backend.
 
 For any troubleshooting or modifications, refer to the AWS CloudFormation console, review the logs, and adjust parameters as necessary.
